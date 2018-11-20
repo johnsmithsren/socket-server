@@ -1,7 +1,8 @@
 var io = require('socket.io')('4000');
 // const io = require('socket.io-client');
 const readline = require('readline');
-const _ = require('lodash')
+const _ = require('lodash');
+const moment = require('moment');
 var ObjectID = require("bson-objectid");
 const rl = readline.createInterface({
     input: process.stdin,
@@ -23,8 +24,9 @@ const Socket = new Schema({
     name: { type: String, default: 'hahaha' },
     age: { type: Number, min: 18, index: true },
     comments: { type: Array, default: [] },
+    createTime: { type: String, default: '' },
 });
-var BlogPost = mongoClient.model('Socket', Socket);
+var userDialogue = mongoClient.model('Socket', Socket);
 let id = ObjectID();
 let userList = []
 rl.setPrompt(id + '> ');
@@ -32,7 +34,7 @@ rl.prompt();
 io.on('connection', function (socket) {
     socket.on('login', function (data) {
         userList.push(data.id)
-        socket.emit('login', { id: data.id, value: '已上线', userList: userList });
+        io.emit('login', { id: data.id, value: '已上线', userList: userList });
 
     });
     rl.on('line', function (line) {
@@ -45,8 +47,12 @@ io.on('connection', function (socket) {
             socket.disconnect();
         }
     });
-    socket.on('callback', function (data) {
+    socket.on('callback', async function (data) {
         if (_.includes(userList, data.username)) {
+            var user = new userDialogue({ 'name': data.username });
+            user.comments.push(data.value);
+            user.createTime = moment().format('MMMM Do YYYY, h:mm:ss a');
+            await user.save();
             socket.broadcast.emit('callback', { 'id': data.username, value: data.value })
         } else {
             console.log('非法用户' + data.username + ' 说: ' + data.value)
